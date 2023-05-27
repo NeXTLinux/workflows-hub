@@ -1,0 +1,60 @@
+name: CD-template
+
+on:
+  workflow_call:
+    inputs:
+      event_name:
+        required: true
+        type: string
+      executor_dir:
+        required: false
+        type: string
+        default: '.'
+    secrets:
+      secret:
+        required: false
+      nextlinuxhub_token:
+        required: false
+
+jobs:
+  push-executors:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+        # the action doesn't work on release events
+      - name: Get previous tag
+        if: ${{ inputs.event_name != 'release' }}
+        id: previous_tag_action
+        uses: 'WyriHaximus/github-action-get-previous-tag@v1'
+        with:
+          fallback: 'latest'
+        # this only works for newly released tags
+      - name: Get the version we just released
+        if: ${{ inputs.event_name == 'release' }}
+        id: previous_tag_custom
+        run: |
+          [[ ! "$GITHUB_REF" =~ refs/tags ]] && exit
+          echo "::set-output name=tag::${GITHUB_REF#refs/tags/}"
+      - name: push to Hubble with release
+        if: ${{ inputs.event_name == 'release' }}
+        id: push_exec_custom
+        uses: nextlinux/action-push-hub@v3
+        env:
+          exec_secret: ${{ secrets.secret }}
+          nextlinuxhub_token: ${{ secrets.nextlinuxhub_token }}
+        with:
+          git_tag: ${{ steps.previous_tag_custom.outputs.tag }}
+          push_dir: ${{ inputs.executor_dir }}
+      - name: push to Hubble without release
+        if: ${{ inputs.event_name != 'release' }}
+        id: push_exec_action
+        uses: nextlinux/action-push-hub@v3
+        env:
+          exec_secret: ${{ secrets.secret }}
+          nextlinuxhub_token: ${{ secrets.nextlinuxhub_token }}
+        with:
+          git_tag: ${{ steps.previous_tag_action.outputs.tag }}
+          push_dir: ${{ inputs.executor_dir }}
