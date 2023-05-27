@@ -1,0 +1,21 @@
+name: CI-GPU-template
+
+on:
+  workflow_call:
+
+jobs:
+  gpu-tests:
+    runs-on: [self-hosted, x64, gpu, linux]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+      - name: Install latest stable 3.x jina version
+        run: |
+          pip install jina
+      - name: Python requirements
+        run: pip install -r gpu_requirements.txt -r tests/requirements.txt
+      - name: Run GPU tests
+        run: python -m pytest -s -v -m "gpu"
